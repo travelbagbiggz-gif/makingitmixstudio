@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
@@ -13,6 +13,7 @@ import ABComparison from './components/ABComparison';
 const FineTuneMixPage = () => {
   const navigate = useNavigate();
   const [isPlaying, setIsPlaying] = useState(false);
+  const masterPlaybackRef = useRef(null);
   const [channels, setChannels] = useState([
     {
       id: 'beat',
@@ -93,32 +94,45 @@ const FineTuneMixPage = () => {
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const handleFaderChange = (channelId, faderType, value) => {
-    setChannels(prev => prev?.map(ch => 
+    setChannels(prev => prev?.map(ch =>
       ch?.id === channelId ? { ...ch, [faderType]: value } : ch
     ));
-    
+    // Apply EQ live during playback
+    if (isPlaying && masterPlaybackRef?.current) {
+      const ch = channels?.find(c => c?.id === channelId);
+      if (ch) {
+        const updated = { ...ch, [faderType]: value };
+        masterPlaybackRef?.current?.updateEQParams(channelId, updated?.bass, updated?.mid, updated?.treble);
+      }
+    }
     addToHistory(`Adjusted ${faderType} on ${channels?.find(ch => ch?.id === channelId)?.name}`, 'Sliders');
   };
 
   const handleReverbChange = (channelId, value) => {
-    setChannels(prev => prev?.map(ch => 
+    setChannels(prev => prev?.map(ch =>
       ch?.id === channelId ? { ...ch, reverb: value } : ch
     ));
-    
+    // Apply reverb live during playback
+    if (isPlaying && masterPlaybackRef?.current) {
+      masterPlaybackRef?.current?.updateReverbWet(channelId, value);
+    }
     addToHistory(`Changed reverb on ${channels?.find(ch => ch?.id === channelId)?.name}`, 'Waves');
   };
 
   const handleTelephoneToggle = (channelId) => {
-    setChannels(prev => prev?.map(ch => 
+    setChannels(prev => prev?.map(ch =>
       ch?.id === channelId ? { ...ch, telephoneEnabled: !ch?.telephoneEnabled } : ch
     ));
-    
     const channel = channels?.find(ch => ch?.id === channelId);
     addToHistory(`${channel?.telephoneEnabled ? 'Disabled' : 'Enabled'} telephone preset on ${channel?.name}`, 'Phone');
   };
 
   const handleEchoChange = (newEcho) => {
     setEcho(newEcho);
+    // Apply echo live during playback
+    if (isPlaying && masterPlaybackRef?.current) {
+      masterPlaybackRef?.current?.updateEchoParams(newEcho);
+    }
     addToHistory('Modified echo settings', 'Radio');
   };
 
@@ -237,10 +251,13 @@ const FineTuneMixPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-4 md:space-y-6">
               <MasterPlayback
+                ref={masterPlaybackRef}
                 isPlaying={isPlaying}
                 onPlayPause={handlePlayPause}
                 onStop={handleStop}
                 duration={180}
+                channels={channels}
+                echo={echo}
               />
 
               <div className="bg-muted/30 rounded-xl p-4 md:p-6">

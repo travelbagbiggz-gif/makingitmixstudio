@@ -14,10 +14,12 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
     setError('');
+    setSuccess(false);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -45,15 +47,58 @@ const SignUp = () => {
 
       if (signUpError) {
         setError(signUpError?.message || 'Failed to create account');
-      } else if (data?.user) {
+      } else if (data?.session) {
+        // Session exists — auto-confirmed, go straight to studio
         navigate('/recording-studio');
+      } else if (data?.user) {
+        // User created but no session yet — email confirmation may be required
+        // Try signing in immediately
+        const { data: signInData, error: signInError } = await supabase?.auth?.signInWithPassword({
+          email,
+          password
+        });
+        if (!signInError && signInData?.session) {
+          navigate('/recording-studio');
+        } else {
+          // Email confirmation required
+          setSuccess(true);
+        }
+      } else {
+        setError('Account creation failed. Please try again.');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <>
+        <Helmet>
+          <title>Sign Up - MAKINGITMIXPROSTUDIO</title>
+        </Helmet>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center px-4">
+          <div className="max-w-md w-full">
+            <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-full mb-4">
+                <Icon name="Check" className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Account Created!</h1>
+              <p className="text-gray-400 mb-6">Check your email to confirm your account, then sign in.</p>
+              <Link
+                to="/sign-in"
+                className="inline-block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors text-center"
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -65,7 +110,7 @@ const SignUp = () => {
           <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-full mb-4">
-                <Icon name="music" className="w-8 h-8 text-white" />
+                <Icon name="Music" className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
               <p className="text-gray-400">Start your recording journey</p>
@@ -75,7 +120,7 @@ const SignUp = () => {
               {error && (
                 <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Icon name="alert-circle" className="w-5 h-5 text-red-400" />
+                    <Icon name="AlertCircle" className="w-5 h-5 text-red-400" />
                     <p className="text-sm text-red-300">{error}</p>
                   </div>
                 </div>
@@ -148,7 +193,7 @@ const SignUp = () => {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Icon name="loader" className="w-5 h-5 animate-spin" />
+                    <Icon name="Loader" className="w-5 h-5 animate-spin" />
                     Creating account...
                   </span>
                 ) : (

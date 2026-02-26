@@ -56,7 +56,6 @@ const FAQSection = () => {
       <div className="container-studio">
         <div className="text-center mb-8 md:mb-12 lg:mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/10 rounded-full text-accent text-sm md:text-base font-medium mb-4">
-            <Icon name="HelpCircle" size={16} />
             <span>FAQ</span>
           </div>
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-4">

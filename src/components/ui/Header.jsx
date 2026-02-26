@@ -17,36 +17,56 @@ const Header = () => {
   const showProBadge = isProUser || isAdmin;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/98 backdrop-blur-md border-b border-gray-800/60" style={{ boxShadow: '0 1px 20px rgba(0,0,0,0.5)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-              <Icon name="music" className="w-6 h-6 text-white" />
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ring-1 ring-amber-500/30 group-hover:ring-amber-500/60 transition-all">
+              <img
+                src="/assets/images/JPEG_image-4055-9F47-20-0-1772030553207.jpeg"
+                alt="MakingItMixProStudio logo"
+                className="w-full h-full object-cover"
+              />
             </div>
-            <span className="text-xl font-bold text-white">MAKINGITMIXPROSTUDIO</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-[11px] font-mono font-semibold tracking-[0.25em] uppercase text-amber-400/80">Making It</span>
+              <span
+                className="text-lg font-black tracking-[0.12em] uppercase leading-none"
+                style={{
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 30%, #ffffff 55%, #fbbf24 75%, #d97706 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  letterSpacing: '0.12em',
+                  textShadow: 'none',
+                  filter: 'drop-shadow(0 0 8px rgba(251,191,36,0.3))'
+                }}
+              >
+                MIX PRO STUDIO
+              </span>
+            </div>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="/recording-studio" className="text-gray-300 hover:text-white transition-colors">
+            <Link to="/recording-studio" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
               Studio
             </Link>
-            <Link to="/fine-tune-mix-page" className="text-gray-300 hover:text-white transition-colors">
+            <Link to="/fine-tune-mix-page" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
               Mix
             </Link>
-            <Link to="/mastering-page" className="text-gray-300 hover:text-white transition-colors">
+            <Link to="/mastering-page" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
               Master
             </Link>
             {user && (
               <>
-                <Link to="/project-management" className="text-gray-300 hover:text-white transition-colors">
+                <Link to="/project-management" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
                   Projects
                 </Link>
-                <Link to="/account-management" className="text-gray-300 hover:text-white transition-colors">
+                <Link to="/account-management" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
                   Account
                 </Link>
                 {isAdmin && (
-                  <Link to="/admin" className="text-gray-300 hover:text-white transition-colors">
+                  <Link to="/admin" className="text-gray-300 hover:text-amber-400 transition-colors text-sm font-medium tracking-wide">
                     Admin
                   </Link>
                 )}
@@ -58,19 +78,19 @@ const Header = () => {
             {user ? (
               <>
                 {showProBadge && (
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-purple-600/20 border border-purple-600 rounded-full">
-                    <Icon name="Crown" size={14} color="#a855f7" />
-                    <span className="text-xs font-semibold text-purple-400">PRO</span>
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/40 rounded-full">
+                    <Icon name="Crown" size={14} color="#f59e0b" />
+                    <span className="text-xs font-semibold text-amber-400">PRO</span>
                   </div>
                 )}
                 <Link to="/account-management">
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <Button className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white">
                     <Icon name="user" className="w-4 h-4" />
                   </Button>
                 </Link>
                 <Button
                   onClick={handleSignOut}
-                  className="bg-gray-700 hover:bg-gray-600 text-white"
+                  className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-sm"
                 >
                   Sign Out
                 </Button>
@@ -78,12 +98,12 @@ const Header = () => {
             ) : (
               <>
                 <Link to="/sign-in">
-                  <Button className="bg-gray-700 hover:bg-gray-600 text-white">
+                  <Button className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-sm">
                     Sign In
                   </Button>
                 </Link>
                 <Link to="/sign-up">
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <Button className="text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)', color: '#000', border: 'none' }}>
                     Sign Up
                   </Button>
                 </Link>
