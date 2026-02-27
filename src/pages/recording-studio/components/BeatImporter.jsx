@@ -27,7 +27,7 @@ const detectKeyFromBuffer = (audioBuffer) => {
         // Check 3 octaves (C2-C5 range) for each pitch class
         for (let oct = 2; oct <= 5; oct++) {
           const freq = 261.63 * Math.pow(2, (pc / 12) + (oct - 4));
-          const k = Math.round(freq * frameSize / sampleRate);
+          let k = Math.round(freq * frameSize / sampleRate);
           if (k <= 0 || k >= frameSize / 2) continue;
           let re = 0, im = 0;
           // Approximate DFT at bin k using a small window around it
@@ -74,11 +74,190 @@ const detectKeyFromBuffer = (audioBuffer) => {
   }
 };
 
+// Energy-based BPM detection using onset strength and autocorrelation
+const detectBPMFromBuffer = (audioBuffer) => {
+  try {
+    const data = audioBuffer?.getChannelData(0);
+    const sampleRate = audioBuffer?.sampleRate;
+
+    // Use first 60 seconds max
+    const maxSamples = Math.min(data?.length, sampleRate * 60);
+
+    // FFT frame parameters — 1024-point FFT, 512-sample hop (~11.6ms at 44.1kHz)
+    const frameSize = 1024;
+    const hopSize = 512;
+    const numFrames = Math.floor((maxSamples - frameSize) / hopSize);
+    if (numFrames < 32) return 120;
+
+    // Hann window
+    const hannWindow = new Float32Array(frameSize);
+    for (let i = 0; i < frameSize; i++) {
+      hannWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (frameSize - 1)));
+    }
+
+    // --- Step 1: Compute magnitude spectrum per frame using real FFT ---
+    // We only need the positive half: bins 0..frameSize/2
+    const halfSize = frameSize / 2;
+
+    // Simple radix-2 FFT (in-place, complex)
+    const fft = (re, im) => {
+      let n = re?.length;
+      // Bit-reversal permutation
+      for (let i = 1, j = 0; i < n; i++) {
+        let bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) {
+          [re[i], re[j]] = [re?.[j], re?.[i]];
+          [im[i], im[j]] = [im?.[j], im?.[i]];
+        }
+      }
+      // Cooley-Tukey butterfly
+      for (let len = 2; len <= n; len <<= 1) {
+        const ang = (-2 * Math.PI) / len;
+        const wRe = Math.cos(ang);
+        const wIm = Math.sin(ang);
+        for (let i = 0; i < n; i += len) {
+          let curRe = 1, curIm = 0;
+          for (let j = 0; j < len / 2; j++) {
+            const uRe = re?.[i + j];
+            const uIm = im?.[i + j];
+            const vRe = re?.[i + j + len / 2] * curRe - im?.[i + j + len / 2] * curIm;
+            const vIm = re?.[i + j + len / 2] * curIm + im?.[i + j + len / 2] * curRe;
+            re[i + j] = uRe + vRe;
+            im[i + j] = uIm + vIm;
+            re[i + j + len / 2] = uRe - vRe;
+            im[i + j + len / 2] = uIm - vIm;
+            const nextRe = curRe * wRe - curIm * wIm;
+            curIm = curRe * wIm + curIm * wRe;
+            curRe = nextRe;
+          }
+        }
+      }
+    };
+
+    // Compute magnitude spectra for all frames
+    const spectra = [];
+    const reArr = new Float32Array(frameSize);
+    const imArr = new Float32Array(frameSize);
+
+    for (let f = 0; f < numFrames; f++) {
+      const offset = f * hopSize;
+      for (let i = 0; i < frameSize; i++) {
+        reArr[i] = (data?.[offset + i] || 0) * hannWindow?.[i];
+        imArr[i] = 0;
+      }
+      fft(reArr, imArr);
+      const mag = new Float32Array(halfSize);
+      for (let i = 0; i < halfSize; i++) {
+        mag[i] = Math.sqrt(reArr?.[i] * reArr?.[i] + imArr?.[i] * imArr?.[i]);
+      }
+      spectra?.push(mag);
+    }
+
+    // --- Step 2: Spectral flux onset strength ---
+    // For each frame, sum the positive (half-wave rectified) magnitude differences
+    // across all frequency bins. This fires strongly at every beat transient.
+    const onsetStrength = new Float32Array(numFrames);
+    for (let f = 1; f < numFrames; f++) {
+      let flux = 0;
+      const prev = spectra?.[f - 1];
+      const curr = spectra?.[f];
+      for (let b = 0; b < halfSize; b++) {
+        const diff = curr?.[b] - prev?.[b];
+        if (diff > 0) flux += diff; // half-wave rectification
+      }
+      onsetStrength[f] = flux;
+    }
+
+    // --- Step 3: Normalize onset strength ---
+    let maxOnset = 0;
+    for (let i = 0; i < numFrames; i++) {
+      if (onsetStrength?.[i] > maxOnset) maxOnset = onsetStrength?.[i];
+    }
+    if (maxOnset < 1e-6) return 120;
+    for (let i = 0; i < numFrames; i++) onsetStrength[i] /= maxOnset;
+
+    // --- Step 4: Autocorrelation of onset strength ---
+    const framesPerSecond = sampleRate / hopSize;
+    const minBPM = 60;
+    const maxBPM = 200;
+    const minLag = Math.max(1, Math.floor(framesPerSecond * 60 / maxBPM)); // lag for 200 BPM
+    const maxLag = Math.ceil(framesPerSecond * 60 / minBPM);              // lag for 60 BPM
+    let n = onsetStrength?.length;
+
+    const acf = new Float32Array(maxLag + 1);
+    for (let lag = minLag; lag <= Math.min(maxLag, n - 1); lag++) {
+      let corr = 0;
+      const count = n - lag;
+      for (let i = 0; i < count; i++) {
+        corr += onsetStrength?.[i] * onsetStrength?.[i + lag];
+      }
+      acf[lag] = corr / count;
+    }
+
+    // --- Step 5: Harmonic summation — reinforce true period ---
+    // Sum ACF at lag, lag/2 (double tempo), lag*2 (half tempo) with weights
+    const score = new Float32Array(maxLag + 1);
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      score[lag] = acf?.[lag];
+      // Sub-harmonic: double tempo (lag/2)
+      const halfLag = Math.round(lag / 2);
+      if (halfLag >= minLag && halfLag <= maxLag) score[lag] += 0.5 * acf?.[halfLag];
+      // Super-harmonic: half tempo (lag*2)
+      const doubleLag = lag * 2;
+      if (doubleLag <= maxLag) score[lag] += 0.5 * acf?.[doubleLag];
+    }
+
+    // Find the lag with the highest score
+    let bestLag = minLag;
+    let bestScore = -Infinity;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      if (score?.[lag] > bestScore) {
+        bestScore = score?.[lag];
+        bestLag = lag;
+      }
+    }
+
+    const rawBPM = (framesPerSecond * 60) / bestLag;
+
+    // --- Step 6: Octave resolution ---
+    // Build candidates: raw, ×2, ÷2 — score each by summing ACF at its period harmonics
+    const candidates = [rawBPM];
+    if (rawBPM * 2 <= 200) candidates?.push(rawBPM * 2);
+    if (rawBPM / 2 >= 60) candidates?.push(rawBPM / 2);
+
+    let bestBPM = rawBPM;
+    let bestCandScore = -Infinity;
+    for (const cBPM of candidates) {
+      const cLag = (framesPerSecond * 60) / cBPM;
+      let cScore = 0;
+      // Score by summing ACF at the first 4 harmonics of this period
+      for (let h = 1; h <= 4; h++) {
+        const hLag = Math.round(cLag * h);
+        if (hLag >= 1 && hLag < acf?.length) {
+          cScore += acf?.[hLag] / h;
+        }
+      }
+      if (cScore > bestCandScore) {
+        bestCandScore = cScore;
+        bestBPM = cBPM;
+      }
+    }
+
+    bestBPM = Math.max(60, Math.min(200, bestBPM));
+    return Math.round(bestBPM);
+  } catch (e) {
+    return 120;
+  }
+};
+
 const BeatImporter = forwardRef(
   ({ onBeatImport, beatInfo, isPlaying, onPlayPause, onAudioReady, onTimeUpdate, seekTime }, ref) => {
     const { user } = useAuth();
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [waveformData, setWaveformData] = useState([]);
     const [beatVolume, setBeatVolume] = useState(0.8);
@@ -293,15 +472,18 @@ const BeatImporter = forwardRef(
       }
       setUploading(true);
       try {
-        let filePath = null;
-        if (user) {
-          const fileName = `${user?.id}/beats/${Date.now()}-${file?.name}`;
-          const { data, error } = await supabase?.storage?.from('audio-recordings')?.upload(fileName, file, { upsert: true, contentType: file?.type });
-          if (error) console.error('Upload error:', error);
-          else filePath = data?.path;
-        }
-
+        // Read file as ArrayBuffer first (needed for both upload and decode)
         const arrayBuffer = await file?.arrayBuffer();
+
+        // Run Supabase upload and audio decode IN PARALLEL
+        const uploadPromise = user
+          ? supabase?.storage?.from('audio-recordings')?.upload(
+              `${user?.id}/beats/${Date.now()}-${file?.name}`,
+              file,
+              { upsert: true, contentType: file?.type }
+            )
+          : Promise.resolve({ data: null, error: null });
+
         if (!audioContextRef?.current) {
           audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -309,11 +491,19 @@ const BeatImporter = forwardRef(
           await audioContextRef?.current?.resume();
         }
 
-        const audioBuffer = await audioContextRef?.current?.decodeAudioData(arrayBuffer);
+        // Decode audio and upload simultaneously
+        const [audioBuffer, uploadResult] = await Promise.all([
+          audioContextRef?.current?.decodeAudioData(arrayBuffer?.slice(0)),
+          uploadPromise,
+        ]);
+
+        if (uploadResult?.error) console.error('Upload error:', uploadResult?.error);
+        const filePath = uploadResult?.data?.path || null;
+
         audioBufferRef.current = audioBuffer;
         pauseTimeRef.current = 0;
 
-        // Create gain node immediately after buffer is ready
+        // Create gain node immediately
         gainNodeRef.current = audioContextRef?.current?.createGain();
         gainNodeRef.current.gain.value = beatVolume;
         gainNodeRef?.current?.connect(audioContextRef?.current?.destination);
@@ -322,31 +512,54 @@ const BeatImporter = forwardRef(
         const minutes = Math.floor(durationInSeconds / 60);
         const seconds = Math.floor(durationInSeconds % 60);
         const formattedDuration = `${minutes}:${seconds?.toString()?.padStart(2, '0')}`;
-        const estimatedBPM = Math.floor(Math.random() * (140 - 80) + 80);
+
+        // Generate waveform quickly (lightweight)
         const waveform = generateWaveformData(audioBuffer);
         setWaveformData(waveform);
 
-        // Detect key from audio buffer using chroma analysis
-        const keyInfo = detectKeyFromBuffer(audioBuffer);
-        const keyDisplay = keyInfo?.key + (keyInfo?.scale === 'minor' ? 'm' : '');
-
+        // Show beat immediately with placeholder BPM/key while analysis runs
         const beatData = {
           name: file?.name,
-          bpm: estimatedBPM,
-          key: keyDisplay,
-          keyInfo, // full key info with notes array for autotune
+          bpm: '...',
+          key: '...',
+          keyInfo: null,
           duration: formattedDuration,
           durationInSeconds,
           filePath,
           audioBuffer,
+          analyzing: true,
         };
         onBeatImport(beatData);
         setCurrentTime(0);
+        setUploading(false);
+        setAnalyzing(true);
+
+        // Run heavy analysis asynchronously so UI is unblocked
+        setTimeout(() => {
+          try {
+            const detectedBPM = detectBPMFromBuffer(audioBuffer);
+            const keyInfo = detectKeyFromBuffer(audioBuffer);
+            const keyDisplay = keyInfo?.key + (keyInfo?.scale === 'minor' ? 'm' : '');
+            onBeatImport({
+              ...beatData,
+              bpm: detectedBPM,
+              key: keyDisplay,
+              keyInfo,
+              analyzing: false,
+            });
+          } catch (e) {
+            console.error('Analysis error:', e);
+            onBeatImport({ ...beatData, bpm: 120, key: 'C', analyzing: false });
+          } finally {
+            setAnalyzing(false);
+          }
+        }, 50);
+
       } catch (error) {
         console.error('Error processing audio file:', error);
         alert('Failed to process audio file. Please try a different file.');
-      } finally {
         setUploading(false);
+        setAnalyzing(false);
       }
     };
 
@@ -445,12 +658,20 @@ const BeatImporter = forwardRef(
                 <div className="flex items-center gap-4 text-sm flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">BPM:</span>
-                    <span className="font-data font-medium">{beatInfo?.bpm}</span>
+                    {beatInfo?.analyzing ? (
+                      <span className="font-data font-medium text-muted-foreground animate-pulse">Analyzing...</span>
+                    ) : (
+                      <span className="font-data font-medium">{beatInfo?.bpm}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Key:</span>
-                    <span className="font-data font-medium text-accent">{beatInfo?.key}</span>
-                    {beatInfo?.keyInfo && (
+                    {beatInfo?.analyzing ? (
+                      <span className="font-data font-medium text-muted-foreground animate-pulse">Analyzing...</span>
+                    ) : (
+                      <span className="font-data font-medium text-accent">{beatInfo?.key}</span>
+                    )}
+                    {beatInfo?.keyInfo && !beatInfo?.analyzing && (
                       <span className="text-[9px] font-mono bg-accent/10 text-accent px-1.5 py-0.5 rounded border border-accent/20">
                         AUTO-DETECTED
                       </span>

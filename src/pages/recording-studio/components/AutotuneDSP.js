@@ -68,7 +68,7 @@ export async function buildAutotuneChain(ctx, rawStream, params, analyserNode) {
 
   // Output gain
   const outputGain = ctx?.createGain();
-  outputGain.gain.value = 1.15;
+  outputGain.gain.value = 1.0; // Full gain — no permanent attenuation
   nodes?.push(outputGain);
 
   // Destination stream
@@ -163,7 +163,7 @@ function buildScriptProcessorFallback(
   ctx, source, highpass, outputGain, dest, analyserNode, nodes,
   initialParams
 ) {
-  const BUFFER_SIZE = 2048;
+  const BUFFER_SIZE = 4096;
   const sampleRate = ctx?.sampleRate;
 
   let params = { ...initialParams };
@@ -247,8 +247,8 @@ function buildScriptProcessorFallback(
       const frac = srcPos - srcIdx;
       const s0 = srcIdx < N ? input?.[srcIdx] : 0;
       const s1 = (srcIdx + 1) < N ? input?.[srcIdx + 1] : 0;
-      const win = hannWindow?.[i];
-      output[i] = (s0 + frac * (s1 - s0)) * win;
+      // No Hann window here — windowing caused ~50% amplitude loss on every sample
+      output[i] = s0 + frac * (s1 - s0);
     }
   };
 
@@ -278,11 +278,11 @@ function buildScriptProcessorFallback(
     // PSOLA pitch shift
     psolaShift(input, wetBuffer, currentPitchRatio);
 
-    // Wet/dry blend
+    // Wet/dry blend — no extra boost to prevent clipping
     const wet = params?.wetMix;
     const dry = params?.dryMix;
     for (let i = 0; i < BUFFER_SIZE; i++) {
-      output[i] = input?.[i] * dry + wetBuffer?.[i] * wet * 1.2;
+      output[i] = input?.[i] * dry + wetBuffer?.[i] * wet;
     }
   };
 

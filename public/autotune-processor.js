@@ -255,7 +255,7 @@ class AutotuneProcessor extends AudioWorkletProcessor {
     this._fft(synthReal, outFrame, synthImag, true);
 
     // Apply Hann window and normalize
-    const norm = 2 / (N * 0.5);
+    const norm = 2.0 / N; // Correct overlap-add normalization (was 2/(N*0.5) = 4/N causing amplitude errors)
     for (let i = 0; i < N; i++) {
       outFrame[i] *= this.hannWindow[i] * norm;
     }
@@ -329,17 +329,14 @@ class AutotuneProcessor extends AudioWorkletProcessor {
       return inputFrame.slice();
     }
 
-    // Simple grain-based resampling with Hann window
+    // Simple grain-based resampling — no per-sample Hann window (causes ~50% amplitude loss)
     for (let i = 0; i < N; i++) {
       const srcPos = i * ratio;
       const srcIdx = Math.floor(srcPos);
       const frac = srcPos - srcIdx;
       const s0 = srcIdx < N ? inputFrame[srcIdx] : 0;
       const s1 = (srcIdx + 1) < N ? inputFrame[srcIdx + 1] : 0;
-      const sample = s0 + frac * (s1 - s0);
-      // Hann window for smooth grain boundaries
-      const win = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (N - 1)));
-      output[i] = sample * win;
+      output[i] = s0 + frac * (s1 - s0);
     }
     return output;
   }

@@ -15,6 +15,9 @@ import TermsOfServiceModal from './pages/terms-of-service-modal';
 import PrivacyPolicyModal from './pages/privacy-policy-modal';
 import DmcaContentPolicyModal from './pages/dmca-content-policy-modal';
 import AdminPanel from './pages/admin-panel';
+import StripeSubscriptionCheckout from './pages/stripe-subscription-checkout';
+import DashboardWelcomeScreen from './pages/dashboard-welcome-screen';
+import BillingAccountManagement from './pages/billing-account-management';
 import { AuthProvider } from './contexts/AuthContext';
 
 const Routes = () => {
@@ -38,6 +41,9 @@ const Routes = () => {
           <Route path="/home-page" element={<HomePage />} />
           <Route path="/mastering-page" element={<MasteringPage />} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/stripe-subscription-checkout" element={<StripeSubscriptionCheckout />} />
+          <Route path="/dashboard-welcome-screen" element={<DashboardWelcomeScreen />} />
+          <Route path="/billing-account-management" element={<BillingAccountManagement />} />
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
         </ErrorBoundary>

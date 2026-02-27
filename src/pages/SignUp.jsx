@@ -15,6 +15,8 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -48,17 +50,16 @@ const SignUp = () => {
       if (signUpError) {
         setError(signUpError?.message || 'Failed to create account');
       } else if (data?.session) {
-        // Session exists — auto-confirmed, go straight to studio
-        navigate('/recording-studio');
+        // Session exists — auto-confirmed, go straight to dashboard
+        navigate('/dashboard-welcome-screen');
       } else if (data?.user) {
-        // User created but no session yet — email confirmation may be required
-        // Try signing in immediately
+        // User created but no session yet — try signing in immediately
         const { data: signInData, error: signInError } = await supabase?.auth?.signInWithPassword({
           email,
           password
         });
         if (!signInError && signInData?.session) {
-          navigate('/recording-studio');
+          navigate('/dashboard-welcome-screen');
         } else {
           // Email confirmation required
           setSuccess(true);
@@ -160,30 +161,50 @@ const SignUp = () => {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                   Password
                 </label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e?.target?.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e?.target?.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    tabIndex={-1}
+                  >
+                    <Icon name={showPassword ? 'EyeOff' : 'Eye'} className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
                   Confirm Password
                 </label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e?.target?.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e?.target?.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    tabIndex={-1}
+                  >
+                    <Icon name={showConfirmPassword ? 'EyeOff' : 'Eye'} className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <Button

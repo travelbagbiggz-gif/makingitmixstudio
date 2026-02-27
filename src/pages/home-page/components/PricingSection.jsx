@@ -81,7 +81,7 @@ const PricingSection = ({ onSubscribe }) => {
               </h3>
               <div className="flex items-baseline justify-center gap-2 mb-4">
                 <span className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-foreground">
-                  ${isAnnual ? '8.99' : '10.99'}
+                  ${isAnnual ? '4.79' : '5.99'}
                 </span>
                 <span className="text-lg md:text-xl text-muted-foreground">
                   /{isAnnual ? 'month' : 'month'}
@@ -89,7 +89,7 @@ const PricingSection = ({ onSubscribe }) => {
               </div>
               {isAnnual && (
                 <p className="text-sm text-muted-foreground">
-                  Billed annually at $107.88 (save $23.88)
+                  Billed annually at $57.48 (save $14.40)
                 </p>
               )}
             </div>

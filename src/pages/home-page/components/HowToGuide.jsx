@@ -11,7 +11,7 @@ const HowToGuide = () => {
     title: "Import Your Beat",
     description: "Upload your instrumental track and let our AI detect BPM and key automatically. Supports WAV, MP3, and AIFF formats.",
     icon: "Upload",
-    image: "https://images.unsplash.com/photo-1669501391974-907566df6590",
+    image: "https://img.rocket.new/generatedImages/rocket_gen_img_1ef05d276-1772146343371.png",
     imageAlt: "Professional music producer uploading audio files to digital audio workstation with waveform display on computer screen in modern recording studio",
     features: [
     "Automatic BPM detection",
@@ -50,7 +50,7 @@ const HowToGuide = () => {
     title: "Master & Export",
     description: "Apply professional mastering with loudness targets for streaming, club, or loud playback. Export in WAV or MP3 format.",
     icon: "Download",
-    image: "https://img.rocket.new/generatedImages/rocket_gen_img_1890d147b-1766943793333.png",
+    image: "https://img.rocket.new/generatedImages/rocket_gen_img_16dd30a29-1772186210328.png",
     imageAlt: "Professional audio engineer reviewing final mastered track on digital audio workstation with spectrum analyzer and loudness meters displayed on dual monitors",
     features: [
     "Professional mastering",
@@ -205,7 +205,10 @@ const HowToGuide = () => {
           </div>
         </div>
       </div>
-    </section>);
+    </section>
+  );
+
+
 
 };
 
