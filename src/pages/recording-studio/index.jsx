@@ -9,7 +9,7 @@ import Header from '../../components/ui/Header';
 import PresetSelector from './components/PresetSelector';
 import AutotuneControls from './components/AutotuneControls';
 import BeatImporter from './components/BeatImporter';
-import { updateAutotuneParams } from './components/AutotuneDSP';
+import { buildAutotuneChain, updateAutotuneParams } from "./components/AutotuneDSP";
 
 import AudioMeter from './components/AudioMeter';
 import DeviceSelector from './components/DeviceSelector';
