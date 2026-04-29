@@ -383,7 +383,7 @@ const RecordingStudio = () => {
   };
 
   const handleMonitoringToggle = () => {
-    setMonitoringEnabled(prev => !prev);
+    setMonitoringEnabled((prev) => { const next = !prev; if (monitoringGainRef.current) { monitoringGainRef.current.gain.value = next ? 1.0 : 0.0; } return next; });
   };
 
   const editWindowSections = [
